@@ -1,0 +1,2 @@
+-- This is a chatting application that runs on web sockets.
+-- Please initiate the venv first for the backend and run the command "npm run" 
