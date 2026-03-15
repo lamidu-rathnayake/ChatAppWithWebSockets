@@ -1,6 +1,7 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 import uvicorn
 from collections import defaultdict
+import os
 
 
 class SocketManager:
@@ -8,10 +9,52 @@ class SocketManager:
         self.rooms = defaultdict(list)
         self.clientNames = defaultdict(str)
 
-    async def connect(self, websocket: WebSocket, roomId: str, clientName: str):
+        if not os.path.exists('room_history'):
+            os.makedirs('room_history')
+
+    async def connect(self, websocket: WebSocket, roomId: str, userName: str):
+        clientNamesInRoom = [self.clientNames.get(ws) for ws in self.rooms[roomId]]
+       
+        for name in clientNamesInRoom:
+            if userName == name:
+                print("client form list:",userName)
+                await websocket.accept()
+                await websocket.close(code=4001, reason="User name is taken already")
+                return False
+        
+
         self.rooms[roomId].append(websocket) # apending the new client to the client list of the room id 
-        self.clientNames[websocket] = clientName # adding the new name record to the dictionary
+        self.clientNames[websocket] = userName # adding the new name record to the dictionary
+
+        return True
     
+    async def sendLastFiveMessages(self, websocket: WebSocket, roomId: str):
+        lines = []
+
+        if os.path.exists(f'room_history/{roomId}'):
+            with open(f'room_history/{roomId}', "r") as file:
+                lines = file.readlines()
+                print(lines)
+
+                for line in lines:
+                    line = line.strip()
+                    if "/msg" in line:
+                        sender, message = line.split("/msg",1)
+                        await self.sendMsg(websocket,message,sender)
+    
+    async def write_to_history(self, message: str, userName: str, roomId: str):
+        lines = []
+
+        if os.path.exists(f'room_history/{roomId}'):
+            with open(f'room_history/{roomId}', "r") as file:
+                lines = file.readlines()
+
+        lines.append(f'{userName}/msg{message}\n')
+        lastFiveMessages = lines[-5:]
+
+        with open(f'room_history/{roomId}', "w") as file:
+            file.writelines(lastFiveMessages)
+
     async def disconnect(self, websocket: WebSocket, roomId: str):
         if websocket in self.rooms[roomId]:
             self.rooms[roomId].remove(websocket)
@@ -22,33 +65,43 @@ class SocketManager:
         if not self.rooms[roomId]:
             del self.rooms[roomId]
 
-    async def roomBroadcast(self, websocket: WebSocket, roomId: str, message: str):
+    async def roomBroadcast(self, websocket: WebSocket, roomId: str, message: str, userName: str):
+        await self.write_to_history(message, userName, roomId)
+
+        for connection in self.rooms[roomId]:
+            if connection == websocket:
+                pass
+            else:
+                await self.sendMsg(connection, message, userName)
+                
+    async def sendMsg(self, websocket: WebSocket, message: str, userName: str):
         jsonMessage = {
-            "sender": self.clientNames.get(websocket),
+            "sender": userName,
             "msg": message 
         }
 
-        for connection in self.rooms[roomId]:
-            if connection == WebSocket:
-                pass
-            else:
-                await connection.send_json(jsonMessage)
+        await websocket.send_json(jsonMessage)
 
 
-
-
+# server section
+# ------------------------------------------------------------------------------------
 app = FastAPI()
 socketManager = SocketManager()
 
 @app.websocket("/ws/{roomId}/{name}")
 async def websocket_endpoint(websocket: WebSocket, roomId: str, name: str):
-    await websocket.accept()
-    await socketManager.connect(websocket, roomId, name)
+    isValidConnection = await socketManager.connect(websocket, roomId, name)
     
+    if not isValidConnection:
+        return 
+    
+    await websocket.accept()
+    await socketManager.sendLastFiveMessages(websocket, roomId)
+
     try:
         while True:
-            data = await websocket.receive_text()
-            await socketManager.roomBroadcast(websocket, roomId, data)
+            message = await websocket.receive_text()
+            await socketManager.roomBroadcast(websocket, roomId, message, name)
             
     except WebSocketDisconnect:
         print(f"Client {websocket.client.port} disconnected.")
@@ -57,7 +110,7 @@ async def websocket_endpoint(websocket: WebSocket, roomId: str, name: str):
     except Exception as ex:
         print(f"Exception: {str(ex)}")
         await socketManager.disconnect(websocket, roomId)
-        await websocket.close()
+        await websocket.close(code=4002)
 
 
 if __name__ == "__main__":

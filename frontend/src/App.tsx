@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import './App.css'
 import ChatWindow from './Components/ChatWindow'
-import Header from './Components/Header'
 import Login from './Components/Login'
 
 function App() {
@@ -20,10 +19,7 @@ function App() {
 			{firstLoad ? (
 				<Login onJoin={onJoin} />
 			) : (
-				<>
-					<Header />
-					<ChatWindow room={userRoom} userName={userName} />
-				</>
+				<ChatWindow room={userRoom} userName={userName} />
 			)}
 		</div>
 	);
