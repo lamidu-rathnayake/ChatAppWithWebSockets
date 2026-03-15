@@ -1,6 +1,6 @@
 type Message = {
-    text: string;
     sender: string;
+    msg: string;
 }
 
 type MessageInputProps = {
@@ -13,7 +13,7 @@ const MessageInput = ({ chatHandler, userName }: MessageInputProps) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const query = formData.get("Message") as string;
-        const message: Message = { text: query, sender: userName};
+        const message: Message = { sender: userName, msg: query};
         chatHandler(message);
         e.currentTarget.reset();
     }
