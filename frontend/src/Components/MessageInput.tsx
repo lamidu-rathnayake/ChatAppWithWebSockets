@@ -9,19 +9,36 @@ type MessageInputProps = {
 }
 
 const MessageInput = ({ chatHandler, userName }: MessageInputProps) => {
-    function submitMessage(e: React.FormEvent<HTMLFormElement>) {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const query = formData.get("Message") as string;
-        const message: Message = { sender: userName, msg: query};
+    
+    function submitMessage(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        const messsage = formData.get("Message") as string;
+        
+        if (!messsage.trim()) return; // Prevents sending empty messages
+
+        const message: Message = { sender: userName, msg: messsage };
         chatHandler(message);
-        e.currentTarget.reset();
+        event.currentTarget.reset();
     }
 
-    return <form onSubmit={submitMessage} className="flex flex-nowrap gap-2 w-96 mt-4 m-auto">
-        <input name="Message" className="border border- basis-3/4" />
-        <button type="submit" className="basis-1/4 scale-100 transition delay-150 duration-300 ease-in-out active:scale-80 bg-gray-500">Send</button>
-    </form>
+    return (
+        <form onSubmit={submitMessage} className="bg-white p-3 border-t border-gray-200 flex gap-2 items-center">
+            <input 
+                required
+                name="Message" 
+                placeholder="Type a message..." 
+                autoComplete="off"
+                className="flex-1 bg-gray-100 border-transparent focus:bg-white border rounded-full px-4 py-2 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-sm text-gray-700" 
+            />
+            <button 
+                type="submit" 
+                className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full font-medium active:scale-95 transition-transform duration-200 shadow-sm"
+            >
+                Send
+            </button>
+        </form>
+    )
 }
 
-export default MessageInput; 
+export default MessageInput;

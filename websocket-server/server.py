@@ -1,4 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 from collections import defaultdict
 import os
@@ -86,6 +87,14 @@ class SocketManager:
 # server section
 # ------------------------------------------------------------------------------------
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
+
 socketManager = SocketManager()
 
 @app.websocket("/ws/{roomId}/{name}")
@@ -111,6 +120,18 @@ async def websocket_endpoint(websocket: WebSocket, roomId: str, name: str):
         print(f"Exception: {str(ex)}")
         await socketManager.disconnect(websocket, roomId)
         await websocket.close(code=4002)
+
+
+@app.get("/rooms")
+async def get_active_rooms():
+    rooms_list = []
+
+    if os.path.exists("room_history/"):
+        rooms_list = os.listdir("room_history/")
+
+    active_rooms = list(socketManager.rooms.keys())
+    all_rooms = list(set(rooms_list + active_rooms))
+    return {"rooms": all_rooms}
 
 
 if __name__ == "__main__":
