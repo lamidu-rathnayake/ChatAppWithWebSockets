@@ -16,17 +16,13 @@ class SocketManager:
     async def connect(self, websocket: WebSocket, roomId: str, userName: str):
         clientNamesInRoom = [self.clientNames.get(ws) for ws in self.rooms[roomId]]
        
-        for name in clientNamesInRoom:
-            if userName == name:
-                print("client form list:",userName)
-                await websocket.accept()
-                await websocket.close(code=4001, reason="User name is taken already")
-                return False
+        if userName in clientNamesInRoom:
+            print("client form list:",userName)
+            await websocket.close(code=4001, reason="User name is taken already")
+            return False
         
-
         self.rooms[roomId].append(websocket) # apending the new client to the client list of the room id 
         self.clientNames[websocket] = userName # adding the new name record to the dictionary
-
         return True
     
     async def sendLastFiveMessages(self, websocket: WebSocket, roomId: str):
@@ -99,12 +95,12 @@ socketManager = SocketManager()
 
 @app.websocket("/ws/{roomId}/{name}")
 async def websocket_endpoint(websocket: WebSocket, roomId: str, name: str):
+    await websocket.accept()
     isValidConnection = await socketManager.connect(websocket, roomId, name)
     
     if not isValidConnection:
         return 
     
-    await websocket.accept()
     await socketManager.sendLastFiveMessages(websocket, roomId)
 
     try:
